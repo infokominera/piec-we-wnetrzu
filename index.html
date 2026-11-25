@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Piec we wnętrzu</title>
+<style>
+:root{
+  --bg:#f4f1ec; --panel:#ffffff; --ink:#1f1b17; --muted:#6f675e; --line:#e3ddd4;
+  --accent:#d9531e; --accent-ink:#fff; --accent-soft:#fbe7dd; --stage:#2a2622;
+  --radius:14px; --shadow:0 1px 2px rgba(0,0,0,.05),0 6px 24px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#171513; --panel:#211e1b; --ink:#f1ece6; --muted:#a59c92; --line:#36312c;
+    --accent:#f06a33; --accent-soft:#3a2418; --stage:#0f0d0c; --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171513; --panel:#211e1b; --ink:#f1ece6; --muted:#a59c92; --line:#36312c;
+  --accent:#f06a33; --accent-soft:#3a2418; --stage:#0f0d0c; --shadow:none;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;padding:20px;max-width:1700px;margin:0 auto;min-height:100vh}
+header{grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:20px;margin:0;letter-spacing:.2px}
+header h1 b{color:var(--accent)}
+header p{margin:0;color:var(--muted);font-size:14px}
+.spacer{flex:1}
+
+/* ---------- stage ---------- */
+.left{display:flex;flex-direction:column;gap:14px;min-width:0}
+.stage-wrap{background:var(--stage);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);position:relative}
+.stage{position:relative;width:100%;user-select:none;-webkit-user-select:none;touch-action:none}
+.stage img{display:block;width:100%;height:auto;pointer-events:none}
+.stage .bg{position:relative}
+.stage .orig{position:absolute;inset:0;opacity:0;transition:opacity .25s}
+.stage.show-orig .orig{opacity:1}
+.pipe{position:absolute;display:none;pointer-events:none;
+  background:linear-gradient(90deg,#0d0d0d 0%,#2e2e2e 18%,#5b5b5b 32%,#3a3a3a 48%,#1f1f1f 72%,#0a0a0a 100%);
+  box-shadow:0 0 .4vw rgba(0,0,0,.25)}
+.pipe.on{display:block}
+.pipe i{position:absolute;left:-4%;right:-4%;height:1.2%;min-height:3px;background:inherit;filter:brightness(1.15);box-shadow:0 1px 2px rgba(0,0,0,.45)}
+.stage.show-orig .pipe,.stage.show-orig .elbow{opacity:0}
+/* kolano 90° wchodzące w ścianę: rozeta na ścianie + łuk kolana widziany od frontu */
+.elbow{position:absolute;display:none;pointer-events:none;aspect-ratio:1/1;transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,#262626 0 58%,#3d3d3d 60%,#1a1a1a 68%,#0c0c0c 71%);box-shadow:0 .15vw .5vw rgba(0,0,0,.35)}
+.elbow.on{display:block}
+.elbow i{position:absolute;left:50%;top:50%;width:58%;aspect-ratio:1/1;transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle at 36% 32%,#777 0%,#4a4a4a 22%,#262626 55%,#0b0b0b 100%)}
+.stove{position:absolute;cursor:grab;transition:opacity .25s;filter:drop-shadow(0 .4vw .5vw rgba(0,0,0,.35))}
+.stove img{width:100%;height:auto}
+.stove.dragging{cursor:grabbing;transition:none}
+.stove.fade{opacity:0}
+.stage.show-orig .stove{opacity:0}
+.stage:not(.adjust) .stove{cursor:default}
+.stage.custom{cursor:crosshair}
+.stage.adjust .stove{outline:2px dashed rgba(255,255,255,.85);outline-offset:4px}
+.badge{position:absolute;left:14px;top:14px;background:rgba(20,17,15,.72);color:#fff;padding:7px 12px;border-radius:10px;font-size:14px;backdrop-filter:blur(6px);pointer-events:none;max-width:calc(100% - 28px)}
+.badge small{display:block;opacity:.75;font-size:12px}
+.loading{position:absolute;right:14px;top:14px;width:22px;height:22px;border-radius:50%;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .8s linear infinite;display:none}
+.loading.on{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:0;background:rgba(20,17,15,.55);color:#fff;font-size:20px;cursor:pointer;display:grid;place-items:center}
+.nav:hover{background:rgba(20,17,15,.8)}
+.nav.prev{left:12px}.nav.next{right:12px}
+
+/* ---------- toolbar ---------- */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;box-shadow:var(--shadow)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:7px 12px;cursor:pointer;font-size:14px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:7px 12px;cursor:pointer;font-size:14px;display:inline-flex;gap:6px;align-items:center}
+.btn:hover{border-color:var(--accent)}
+.btn.on{background:var(--accent-soft);border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.lbl{color:var(--muted);font-size:13px}
+.range{display:inline-flex;align-items:center;gap:8px}
+.range input{width:130px;accent-color:var(--accent)}
+.range output{font-variant-numeric:tabular-nums;width:42px;font-size:13px;color:var(--muted)}
+
+/* ---------- interiors strip ---------- */
+.strip-h{display:flex;align-items:baseline;gap:10px}
+.strip-h h2,.side h2{font-size:15px;margin:0}
+.strip{display:grid;grid-auto-flow:column;grid-auto-columns:150px;gap:10px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x proximity}
+.strip button{border:2px solid transparent;border-radius:10px;padding:0;overflow:hidden;cursor:pointer;background:var(--panel);scroll-snap-align:start;position:relative}
+.strip button img{display:block;width:100%;aspect-ratio:7/5;object-fit:cover}
+.strip button span{position:absolute;left:6px;bottom:6px;background:rgba(20,17,15,.7);color:#fff;font-size:11px;padding:2px 6px;border-radius:6px}
+.strip button.on{border-color:var(--accent)}
+
+.strip .add{border:2px dashed var(--accent);background:var(--accent-soft);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;aspect-ratio:7/5;color:var(--accent);font-weight:600;font-size:13px}
+.strip .add b{font-size:26px;line-height:1}
+.seg button:disabled{opacity:.35;cursor:not-allowed}
+.note{font-size:12.5px;color:var(--muted);flex-basis:100%;margin:-2px 0 0}
+.note:empty{display:none}
+
+/* ---------- upload dialog ---------- */
+dialog{border:0;border-radius:18px;padding:0;max-height:calc(100vh - 32px);overflow:auto;max-width:760px;width:calc(100% - 32px);background:var(--panel);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(20,17,15,.55)}
+.dlg{padding:22px 24px 20px;display:grid;gap:16px}
+.dlg h2{margin:0;font-size:19px}
+.dlg p{margin:0;color:var(--muted)}
+.examples{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ex{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:6px;justify-items:center;text-align:center;font-size:13px}
+.ex svg{width:100%;max-width:240px;height:auto}
+.ex.ok{border-color:#3e9b5b}.ex.bad{border-color:#c4453a}
+.ex b{font-size:13px}.ex.ok b{color:#2f8a4c}.ex.bad b{color:#c4453a}
+.rules{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14px}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:18px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{color:var(--accent)}
+.dlg-f a{text-decoration:none}
+.dlg-f{display:flex;gap:10px;justify-content:flex-end;align-items:center}
+.dlg-f .lbl{margin-right:auto}
+@media (max-width:560px){.examples{grid-template-columns:1fr}}
+
+/* ---------- stoves panel ---------- */
+.side{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;flex-direction:column;min-height:0;max-height:calc(100vh - 92px);position:sticky;top:20px}
+.side-h{padding:14px 14px 10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.side-h input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+.side-h input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.grid{overflow-y:auto;padding:12px 14px 16px;display:flex;flex-direction:column;gap:14px}
+.group h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{border:2px solid var(--line);background:#fff;border-radius:12px;padding:8px 6px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:border-color .15s,transform .15s}
+.tile:hover{border-color:var(--accent);transform:translateY(-1px)}
+.tile.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.tile img{width:100%;aspect-ratio:1;object-fit:contain}
+.tile span{font-size:11.5px;line-height:1.2;text-align:center;color:#2a241f;min-height:2.4em}
+.tile .orig-mark{font-size:10px;color:var(--accent);min-height:0}
+.hint{color:var(--muted);font-size:12.5px;padding:0 14px 12px}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;font-size:11px;background:var(--bg)}
+
+@media (max-width:1050px){
+  .app{grid-template-columns:1fr;padding:12px 16px}
+  .side{position:static;max-height:none}
+  .tiles{grid-template-columns:repeat(auto-fill,minmax(105px,1fr))}
+}
+@media (max-width:560px){
+  .nav{width:34px;height:34px}
+  .badge{font-size:12px;padding:5px 9px}
+  .range input{width:100px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Piec we wnętrzu</h1>
+    <p>Piece KAWMET · kliknij piec po prawej, a podmieni się na zdjęciu.</p>
+    <div class="spacer"></div>
+    <button class="btn primary" id="ownBtn" type="button">📷 Wstaw piec na swoje zdjęcie</button>
+  </header>
+
+  <section class="left">
+    <div class="stage-wrap">
+      <div class="stage" id="stage">
+        <img class="bg" id="bg" alt="Wnętrze">
+        <img class="orig" id="orig" alt="Oryginalne zdjęcie">
+        <div class="pipe" id="pipe"><i></i></div>
+        <div class="elbow" id="elbow"><i></i></div>
+        <div class="stove" id="stove"><img id="stoveImg" alt=""></div>
+      </div>
+      <div class="badge" id="badge"></div>
+      <div class="loading" id="loading"></div>
+      <button class="nav prev" id="prevInt" title="Poprzednie wnętrze" aria-label="Poprzednie wnętrze">‹</button>
+      <button class="nav next" id="nextInt" title="Następne wnętrze" aria-label="Następne wnętrze">›</button>
+    </div>
+
+    <div class="toolbar">
+      <span class="lbl" hidden>Ujęcie</span>
+      <div class="seg" id="viewSeg" hidden>
+        <button data-v="L">Lewy bok</button><button data-v="F">Przód</button><button data-v="R">Prawy bok</button>
+      </div>
+      <label class="range"><span class="lbl">Rozmiar</span><input type="range" id="scale" min="70" max="135" step="1"><output id="scaleOut"></output></label>
+      <button class="btn" id="adjust" title="Przeciągnij piec myszką, aby go przesunąć">✥ Przesuń</button>
+      <button class="btn" id="pipeBtn" title="Pokaż rurę dymową nad piecem">▮ Rura</button>
+      <label class="range" id="pipeLen" hidden><span class="lbl" title="Poniżej 100% rura kończy się kolanem wchodzącym w ścianę">Wys. rury</span><input type="range" id="pipeLenIn" min="5" max="100" step="1"><output id="pipeLenOut"></output></label>
+      <button class="btn" id="reset">↺ Reset</button>
+      <div class="spacer"></div>
+      <button class="btn" id="compare" title="Przytrzymaj, aby zobaczyć oryginalne zdjęcie">◐ Oryginał</button>
+      <button class="btn primary" id="download">⤓ Pobierz JPG</button>
+      <p class="note" id="note"></p>
+    </div>
+
+    <div class="strip-h"><h2>Wnętrza</h2><span class="lbl" id="intCount"></span></div>
+    <div class="strip" id="strip"></div>
+  </section>
+
+  <aside class="side">
+    <div class="side-h">
+      <h2>Wybierz piec</h2>
+      <div class="seg" id="lineSeg"><button data-l="" class="on">Wszystkie</button><button data-l="Premium">Premium</button><button data-l="Standard">Standard</button></div>
+      <input id="q" type="search" placeholder="Szukaj, np. Athena, P7…" autocomplete="off">
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="hint">Na własnym zdjęciu: kliknij miejsce na podłodze, potem dopasuj rozmiar. <kbd>←</kbd> <kbd>→</kbd> poprzedni / następny piec · <kbd>↑</kbd> <kbd>↓</kbd> wnętrze · przytrzymaj <kbd>Spacja</kbd> = oryginał</div>
+  </aside>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" class="dlg">
+    <h2>Wstaw piec na zdjęcie swojego pomieszczenia</h2>
+    <p>Na własnym zdjęciu piece pokazujemy tylko od frontu, dlatego zdjęcie musi być zrobione na wprost ściany, przy której ma stać piec.</p>
+    <div class="examples">
+      <div class="ex ok">
+        <svg viewBox="0 0 240 150" aria-hidden="true"><rect x="1" y="1" width="238" height="148" rx="8" fill="#f2eee8" stroke="#cfc6ba"/><rect x="1" y="108" width="238" height="41" fill="#d9cbb6"/><line x1="1" y1="108" x2="239" y2="108" stroke="#b9a88f" stroke-width="2"/><rect x="106" y="1" width="12" height="62" fill="#333"/><rect x="88" y="62" width="48" height="44" rx="3" fill="#2b2b2b"/><rect x="97" y="70" width="30" height="22" rx="2" fill="#f08a2c"/><rect x="92" y="106" width="4" height="8" fill="#2b2b2b"/><rect x="128" y="106" width="4" height="8" fill="#2b2b2b"/><path d="M200 128l8 8 16-18" fill="none" stroke="#2f8a4c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <b>Dobrze: na wprost ściany</b><span>linia podłogi poziomo, ściana prostokątna</span>
+      </div>
+      <div class="ex bad">
+        <svg viewBox="0 0 240 150" aria-hidden="true"><rect x="1" y="1" width="238" height="148" rx="8" fill="#f2eee8" stroke="#cfc6ba"/><path d="M1 1 L120 25 L120 112 L1 149 Z" fill="#e6ded2"/><path d="M120 25 L239 1 L239 149 L120 112 Z" fill="#efe8de"/><path d="M1 149 L120 112 L239 149 Z" fill="#d9cbb6"/><line x1="120" y1="25" x2="120" y2="112" stroke="#b9a88f" stroke-width="2"/><path d="M196 112l26 26M222 112l-26 26" stroke="#c4453a" stroke-width="5" stroke-linecap="round"/></svg>
+        <b>Źle: zdjęcie pod kątem lub w narożnik</b><span>piec z przodu nie będzie pasował</span>
+      </div>
+    </div>
+    <ul class="rules">
+      <li>Stań na wprost miejsca na piec, w odległości ok. 3–4 m.</li>
+      <li>Trzymaj telefon poziomo, na wysokości ok. 1 m, bez przechylania.</li>
+      <li>Na zdjęciu musi być widać podłogę w miejscu pieca i ścianę nad nim.</li>
+      <li>Miejsce na piec powinno być puste – bez mebli i przedmiotów, które je zasłaniają.</li>
+      <li>Zrób zdjęcie przy dobrym, równym świetle, bez lampy błyskowej.</li>
+      <li>Format JPG, PNG lub WebP. Zdjęcie zostaje tylko w Twojej przeglądarce – nigdzie go nie wysyłamy.</li>
+    </ul>
+    <label class="drop" id="drop"><input type="file" id="file" accept="image/jpeg,image/png,image/webp" hidden>
+      <strong>Wybierz zdjęcie</strong> albo przeciągnij je tutaj</label>
+    <p class="lbl" id="dlgMsg" style="color:var(--accent);margin:0"></p>
+    <div class="dlg-f"><span class="lbl">Po wgraniu kliknij na zdjęciu w miejscu, gdzie ma stać piec.</span><button class="btn" value="cancel">Anuluj</button></div>
+  </form>
+</dialog>
+
+<dialog id="shot">
+  <form method="dialog" class="dlg">
+    <h2>Twoje zdjęcie z piecem</h2>
+    <img id="shotImg" alt="Zdjęcie wnętrza z wybranym piecem" style="width:100%;max-height:58vh;object-fit:contain;border-radius:10px;display:block;background:var(--stage)">
+    <p>Jeśli plik się nie pobierze, kliknij zdjęcie prawym przyciskiem myszy i wybierz „Zapisz obraz jako…”. Na telefonie przytrzymaj zdjęcie palcem.</p>
+    <div class="dlg-f"><a class="btn primary" id="shotLink" href="#">⤓ Pobierz JPG</a><button class="btn" value="close">Zamknij</button></div>
+  </form>
+</dialog>
+
+<script src="data.js?v=6"></script>
+<script>
+(() => {
+  const D = window.KAWMET_DATA;
+  const S = Object.fromEntries(D.stoves.map(s => [s.id, s]));
+  const $ = id => document.getElementById(id);
+  const stage=$('stage'), bg=$('bg'), orig=$('orig'), stove=$('stove'), stoveImg=$('stoveImg'), pipe=$('pipe');
+  const store = {
+    get(k, d){ try{ const v = localStorage.getItem('kawmet.'+k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+    set(k, v){ try{ localStorage.setItem('kawmet.'+k, JSON.stringify(v)); }catch(e){} }
+  };
+
+  // st.int === -1 means the customer's own photo
+  let st = { int: 0, stove: null, line: '', q: '' };
+  let custom = null; // {id:'own', custom:true, w, h, src, clean, bbox, pipe, view:'F'}
+  const cur = () => st.int === -1 ? custom : D.interiors[st.int];
+  const isCustom = () => st.int === -1;
+  // adjustments per interior+stove: {s: scale %, dx, dy (fractions of image w/h), v: view}
+  let adj = store.get('adj2', {});
+  // pipe settings per interior: {on, len (% of distance from stove top to top edge)}
+  let pipeCfg = store.get('pipe', {});
+  const key = () => cur().id + '|' + st.stove;
+  const curAdj = () => adj[key()] || {};
+  const noPipe = () => isCustom() || !!cur().nopipe;
+  const pipeSet = () => Object.assign({ on: noPipe(), len: noPipe() ? 45 : 100 }, pipeCfg[cur().id] || {});
+  const LIM = () => isCustom() ? { smin: 25, smax: 300, mx: .6, my: .6 } : { smin: 70, smax: 135, mx: .25, my: .15 };
+
+  // ---------- hash state ----------
+  function readHash(){
+    const m = location.hash.slice(1).split('-');
+    const i = D.interiors.findIndex(x => x.id === m[0]);
+    if (i >= 0) st.int = i;
+    if (m[1] && S[m[1]]) st.stove = m[1];
+  }
+  function writeHash(){ history.replaceState(null, '', '#' + cur().id + '-' + st.stove); }
+  function remember(){ if (!isCustom()) store.set('last', {int: st.int, stove: st.stove}); }
+
+  // ---------- strip ----------
+  const strip = $('strip');
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add'; addBtn.innerHTML = '<b>+</b>Twoje zdjęcie';
+  addBtn.title = 'Wgraj zdjęcie swojego pomieszczenia';
+  addBtn.onclick = () => openDlg();
+  strip.appendChild(addBtn);
+  const intBtns = D.interiors.map((it, i) => {
+    const b = document.createElement('button');
+    b.innerHTML = `<img loading="lazy" src="${it.thumb}" alt=""><span>${it.orig ? (i+1)+'. '+S[it.orig].name.replace('Premium ','') : it.title}</span>`;
+    b.title = it.title;
+    b.onclick = () => setInterior(i);
+    strip.appendChild(b); return b;
+  });
+  $('intCount').textContent = D.interiors.length === 1 ? '1 zdjęcie przykładowe' : D.interiors.length + ' zdjęć przykładowych';
+  function markStrip(){
+    intBtns.forEach((b, k) => b.classList.toggle('on', k === st.int));
+    if (custom){
+      addBtn.innerHTML = `<img src="${custom.thumb}" alt=""><span>Twoje zdjęcie</span>`;
+      addBtn.className = isCustom() ? 'on' : '';
+      addBtn.title = isCustom() ? 'Kliknij, aby wgrać inne zdjęcie' : 'Twoje zdjęcie';
+      addBtn.onclick = () => isCustom() ? openDlg() : setInterior(-1);
+    }
+    (isCustom() ? addBtn : intBtns[st.int]).scrollIntoView({inline:'nearest', block:'nearest'});
+  }
+
+  // ---------- tiles ----------
+  const grid = $('grid');
+  function renderTiles(){
+    grid.innerHTML = '';
+    const q = st.q.trim().toLowerCase();
+    const origId = cur().orig;
+    for (const line of ['Premium','Standard']){
+      if (st.line && st.line !== line) continue;
+      const list = D.stoves.filter(s => s.line === line && (!q || s.name.toLowerCase().includes(q)));
+      if (!list.length) continue;
+      const g = document.createElement('div'); g.className = 'group';
+      g.innerHTML = `<h3>Piece ${line}</h3>`;
+      const t = document.createElement('div'); t.className = 'tiles';
+      for (const s of list){
+        const b = document.createElement('button');
+        b.className = 'tile' + (s.id === st.stove ? ' on' : '');
+        b.dataset.id = s.id;
+        b.innerHTML = `<img loading="lazy" src="${s.thumb}" alt=""><span>${s.name.replace('Premium ','')}</span>` +
+          (s.id === origId ? `<span class="orig-mark">na zdjęciu</span>` : '');
+        b.onclick = () => setStove(s.id);
+        t.appendChild(b);
+      }
+      g.appendChild(t); grid.appendChild(g);
+    }
+    if (!grid.children.length) grid.innerHTML = '<p class="lbl">Brak pieców pasujących do wyszukiwania.</p>';
+  }
+  function markTiles(){
+    grid.querySelectorAll('.tile').forEach(t => t.classList.toggle('on', t.dataset.id === st.stove));
+    const on = grid.querySelector('.tile.on'); if (on) on.scrollIntoView({block:'nearest'});
+  }
+  $('lineSeg').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    st.line = b.dataset.l;
+    $('lineSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    renderTiles();
+  };
+  $('q').oninput = e => { st.q = e.target.value; renderTiles(); };
+
+  // ---------- placement ----------
+  function view(){
+    if (isCustom()) return 'F';                  // own photos: frontal models only
+    const v = 'F'; // tylko frontalne ujęcia
+    return S[st.stove].views[v] ? v : 'F';
+  }
+  // geometry in image pixels: stove {L, T, W, H} and pipe rect
+  function geom(){
+    const it = cur(), v = S[st.stove].views[view()], a = curAdj();
+    const [x1,y1,x2,y2] = it.bbox, W = it.w, H = it.h;
+    let hpx = (y2-y1)/100*H; const bwp = (x2-x1)/100*W;
+    if (hpx*v.ar > bwp*1.3) hpx = bwp*1.3/v.ar;
+    hpx *= (a.s || 100)/100;
+    const wpx = hpx*v.ar;
+    const cx = (view()==='F' ? (it.pipe[0]+it.pipe[1])/200 : (x1+x2)/200)*W + (a.dx||0)*W;
+    const bottom = y2/100*H + (a.dy||0)*H;
+    const g = { L: cx - wpx/2, T: bottom - hpx, W: wpx, H: hpx };
+    const c = v.collar || {cx:.5, w:.2, h:0};
+    const pw = Math.max(c.w*wpx, wpx*0.1);
+    const pb = g.T + Math.max(c.h, .02)*hpx*0.6;            // pipe enters the collar (hidden behind it)
+    const pt = g.T - (pipeSet().len/100)*Math.max(0, g.T);   // 100% = up to the top edge of the photo
+    const elbow = pipeSet().len < 100;
+    g.pipe = { L: g.L + c.cx*wpx - pw/2, T: pt, W: pw, H: Math.max(0, pb - pt) };
+    // kolano: środek na górnym końcu rury, rozeta ~1.75 średnicy rury
+    g.elbow = elbow ? { cx: g.pipe.L + pw/2, cy: pt + pw*0.5, d: pw*1.75 } : null;
+    if (elbow){ g.pipe.T = g.elbow.cy; g.pipe.H = Math.max(0, pb - g.elbow.cy); }
+    return g;
+  }
+  const pct = (v, t) => (v/t*100) + '%';
+  function place(){
+    const it = cur(), s = S[st.stove], a = curAdj(), g = geom(), lim = LIM(), ps = pipeSet();
+    Object.assign(stove.style, { left: pct(g.L, it.w), top: pct(g.T, it.h), width: pct(g.W, it.w) });
+    Object.assign(pipe.style, { left: pct(g.pipe.L, it.w), top: pct(g.pipe.T, it.h), width: pct(g.pipe.W, it.w), height: pct(g.pipe.H, it.h) });
+    pipe.firstElementChild.style.bottom = '6%';
+    pipe.classList.toggle('on', ps.on);
+    const el = $('elbow');
+    el.classList.toggle('on', ps.on && !!g.elbow);
+    if (g.elbow) Object.assign(el.style, { left: pct(g.elbow.cx, it.w), top: pct(g.elbow.cy, it.h), width: pct(g.elbow.d, it.w) });
+    $('pipeBtn').classList.toggle('on', ps.on);
+    $('pipeLen').hidden = !ps.on;
+    $('pipeLenIn').value = ps.len; $('pipeLenOut').textContent = ps.len + '%';
+    const sc = $('scale'); sc.min = lim.smin; sc.max = lim.smax; sc.value = a.s || 100;
+    $('scaleOut').textContent = (a.s || 100) + '%';
+    $('viewSeg').querySelectorAll('button').forEach(b => {
+      b.classList.toggle('on', b.dataset.v === view());
+      b.disabled = isCustom() && b.dataset.v !== 'F';
+    });
+    $('badge').innerHTML = isCustom()
+      ? `${s.name}<small>Twoje zdjęcie · widok frontalny</small>`
+      : `${s.name}<small>${D.interiors.length > 1 ? 'Wnętrze '+(st.int+1)+' z '+D.interiors.length : it.title}${it.orig ? ' · oryginalnie: '+S[it.orig].name : ''}</small>`;
+    $('note').textContent = isCustom()
+      ? 'Kliknij na zdjęciu miejsce na podłodze, w którym ma stać piec. Rozmiar dopasuj suwakiem albo kółkiem myszy.'
+      : (ps.on && !it.nopipe ? 'To wnętrze ma już rurę na zdjęciu – narysowana rura idzie prosto do góry od króćca pieca.' : '');
+  }
+  function saveAdj(p){ adj[key()] = Object.assign({}, curAdj(), p); store.set('adj2', adj); place(); }
+  function savePipe(p){ pipeCfg[cur().id] = Object.assign(pipeSet(), p); if (!isCustom()) store.set('pipe', pipeCfg); place(); }
+
+  // ---------- image loading with crossfade ----------
+  const loadImg = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(i); i.src = src; });
+  let token = 0;
+  async function showStove(){
+    const my = ++token, src = S[st.stove].views[view()].src;
+    $('loading').classList.add('on');
+    stove.classList.add('fade');
+    await Promise.all([loadImg(src), new Promise(r => setTimeout(r, 120))]);
+    if (my !== token) return;
+    stoveImg.src = src; place();
+    requestAnimationFrame(() => { stove.classList.remove('fade'); $('loading').classList.remove('on'); });
+  }
+  async function setInterior(i){
+    if (i === -1 && !custom) return openDlg();
+    st.int = i === -1 ? -1 : (i + D.interiors.length) % D.interiors.length;
+    const it = cur(), my = ++token;
+    $('loading').classList.add('on');
+    stage.classList.toggle('custom', isCustom());
+    toggleAdjust(isCustom());
+    markStrip();
+    await Promise.all([loadImg(it.clean), loadImg(S[st.stove].views[view()].src)]);
+    if (my !== token) return;
+    bg.src = it.clean; orig.src = it.src;
+    stoveImg.src = S[st.stove].views[view()].src; place();
+    stove.classList.remove('fade'); $('loading').classList.remove('on');
+    renderTiles(); writeHash(); remember();
+  }
+  function setStove(id){
+    if (!S[id]) return;
+    st.stove = id; markTiles(); showStove(); writeHash(); remember();
+  }
+  function stepStove(d){
+    const ids = [...grid.querySelectorAll('.tile')].map(t => t.dataset.id);
+    if (!ids.length) return;
+    const i = ids.indexOf(st.stove);
+    setStove(ids[(i + d + ids.length) % ids.length]);
+  }
+  const stepInterior = d => setInterior(isCustom() ? (d > 0 ? 0 : D.interiors.length - 1) : st.int + d);
+
+  // ---------- own photo ----------
+  const dlg = $('dlg'), file = $('file'), drop = $('drop');
+  function openDlg(){ $('dlgMsg').textContent = ''; if (dlg.showModal) dlg.showModal(); else file.click(); }
+  file.onchange = () => { if (file.files[0]) useFile(file.files[0]); file.value = ''; };
+  ['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) useFile(f); });
+  async function useFile(f){
+    if (!/^image\/(jpeg|png|webp)$/.test(f.type)){ $('dlgMsg').textContent = 'Ten plik nie jest zdjęciem JPG, PNG ani WebP. Wybierz inne zdjęcie.'; return; }
+    const url = URL.createObjectURL(f), img = await loadImg(url);
+    if (!img.naturalWidth){ $('dlgMsg').textContent = 'Nie udało się wczytać tego zdjęcia. Spróbuj innego pliku.'; return; }
+    // downscale big photos for speed (EXIF orientation is applied by the browser)
+    const k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+    URL.revokeObjectURL(url);
+    if (custom) URL.revokeObjectURL(custom.src);
+    const src = URL.createObjectURL(blob);
+    custom = { id: 'own', custom: true, title: 'Twoje zdjęcie', view: 'F', orig: null, w: c.width, h: c.height,
+               src, clean: src, thumb: src, bbox: [0, 58, 100, 88], pipe: [50, 50] };
+    // forget placements from a previous photo
+    Object.keys(adj).forEach(k => k.startsWith('own|') && delete adj[k]);
+    delete pipeCfg.own;
+    dlg.close();
+    setInterior(-1);
+  }
+  // click on the photo = put the stove there (own photo only)
+  stage.addEventListener('pointerdown', e => {
+    if (!isCustom() || e.button !== 0 || stove.contains(e.target)) return;
+    const r = stage.getBoundingClientRect(), it = cur();
+    const x = (e.clientX - r.left)/r.width, y = (e.clientY - r.top)/r.height;
+    saveAdj({ dx: x - (it.pipe[0]+it.pipe[1])/200, dy: y - it.bbox[3]/100 });
+  });
+
+  // ---------- controls ----------
+  $('viewSeg').onclick = e => { const b = e.target.closest('button'); if (!b || b.disabled) return; saveAdj({v: b.dataset.v}); showStove(); };
+  $('scale').oninput = e => saveAdj({s: +e.target.value});
+  $('reset').onclick = () => { delete adj[key()]; store.set('adj2', adj); showStove(); };
+  $('prevInt').onclick = () => stepInterior(-1);
+  $('nextInt').onclick = () => stepInterior(1);
+  $('ownBtn').onclick = () => openDlg();
+  $('pipeBtn').onclick = () => savePipe({ on: !pipeSet().on });
+  $('pipeLenIn').oninput = e => savePipe({ len: +e.target.value });
+
+  const cmp = $('compare'); let cmpLock = false;
+  const setOrig = on => { stage.classList.toggle('show-orig', on); cmp.classList.toggle('on', on); };
+  cmp.addEventListener('pointerdown', () => setOrig(true));
+  cmp.addEventListener('pointerup', () => setOrig(cmpLock));
+  cmp.addEventListener('pointerleave', () => setOrig(cmpLock));
+  cmp.addEventListener('dblclick', () => { cmpLock = !cmpLock; setOrig(cmpLock); });
+
+  // drag to move
+  const adjBtn = $('adjust');
+  function toggleAdjust(on){ stage.classList.toggle('adjust', on); adjBtn.classList.toggle('on', on); }
+  adjBtn.onclick = () => toggleAdjust(!stage.classList.contains('adjust'));
+  let drag = null;
+  stove.addEventListener('pointerdown', e => {
+    if (!stage.classList.contains('adjust') || e.button !== 0) return;
+    e.preventDefault();
+    const r = stage.getBoundingClientRect(), a = curAdj();
+    drag = { x: e.clientX, y: e.clientY, w: r.width, h: r.height, dx: a.dx || 0, dy: a.dy || 0 };
+    stove.setPointerCapture(e.pointerId); stove.classList.add('dragging');
+  });
+  stove.addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (!(e.buttons & 1)) return endDrag();
+    const lim = LIM(), clamp = (v, m) => Math.max(-m, Math.min(m, v));
+    adj[key()] = Object.assign({}, curAdj(), { dx: clamp(drag.dx + (e.clientX - drag.x)/drag.w, lim.mx), dy: clamp(drag.dy + (e.clientY - drag.y)/drag.h, lim.my) });
+    place();
+  });
+  const endDrag = () => { if (!drag) return; drag = null; stove.classList.remove('dragging'); store.set('adj2', adj); };
+  stove.addEventListener('pointerup', endDrag); stove.addEventListener('pointercancel', endDrag);
+  stove.addEventListener('lostpointercapture', endDrag);
+  stage.addEventListener('wheel', e => {
+    if (!stage.classList.contains('adjust')) return;
+    e.preventDefault();
+    const lim = LIM(), s = Math.max(lim.smin, Math.min(lim.smax, (curAdj().s || 100) + (e.deltaY < 0 ? 3 : -3)));
+    saveAdj({s});
+  }, {passive:false});
+
+  // keyboard
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || dlg.open || $('shot').open) return;
+    if (e.key === 'ArrowRight'){ stepStove(1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft'){ stepStove(-1); e.preventDefault(); }
+    else if (e.key === 'ArrowDown'){ stepInterior(1); e.preventDefault(); }
+    else if (e.key === 'ArrowUp'){ stepInterior(-1); e.preventDefault(); }
+    else if (e.key === ' '){ setOrig(true); e.preventDefault(); }
+  });
+  document.addEventListener('keyup', e => { if (e.key === ' ') setOrig(cmpLock); });
+
+  // download composite
+  let lastShot = null;
+  $('download').onclick = async () => {
+    const it = cur(), g = geom();
+    try{
+      const [b, s] = await Promise.all([loadImg(it.clean), loadImg(stoveImg.src)]);
+      const c = document.createElement('canvas'); c.width = it.w; c.height = it.h;
+      const x = c.getContext('2d'); x.drawImage(b, 0, 0, it.w, it.h);
+      if (pipeSet().on && g.pipe.H > 0){
+        const p = g.pipe, gr = x.createLinearGradient(p.L, 0, p.L + p.W, 0);
+        [[0,'#0d0d0d'],[.18,'#2e2e2e'],[.32,'#5b5b5b'],[.48,'#3a3a3a'],[.72,'#1f1f1f'],[1,'#0a0a0a']].forEach(([o,cl]) => gr.addColorStop(o, cl));
+        x.fillStyle = gr; x.fillRect(p.L, p.T, p.W, p.H);
+        const rh = Math.max(3, p.H*0.012), ry = p.T + p.H*0.94 - rh;
+        x.fillRect(p.L - p.W*.04, ry, p.W*1.08, rh);
+        if (g.elbow){
+          const e = g.elbow, R0 = e.d/2, r1 = R0*0.58;
+          let rg = x.createRadialGradient(e.cx, e.cy, 0, e.cx, e.cy, R0);
+          [[0,'#262626'],[.58,'#262626'],[.6,'#3d3d3d'],[.68,'#1a1a1a'],[.71,'#0c0c0c'],[1,'#0c0c0c']].forEach(([o,cl]) => rg.addColorStop(o, cl));
+          x.save(); x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = R0*0.3; x.shadowOffsetY = R0*0.08;
+          x.fillStyle = rg; x.beginPath(); x.arc(e.cx, e.cy, R0, 0, Math.PI*2); x.fill(); x.restore();
+          rg = x.createRadialGradient(e.cx - r1*0.28, e.cy - r1*0.36, 0, e.cx, e.cy, r1);
+          [[0,'#777'],[.22,'#4a4a4a'],[.55,'#262626'],[1,'#0b0b0b']].forEach(([o,cl]) => rg.addColorStop(o, cl));
+          x.fillStyle = rg; x.beginPath(); x.arc(e.cx, e.cy, r1, 0, Math.PI*2); x.fill();
+        }
+      }
+      x.save(); x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = it.w*0.008; x.shadowOffsetY = it.w*0.006;
+      x.drawImage(s, g.L, g.T, g.W, g.H); x.restore();
+      const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+      if (!blob) throw new Error('canvas');
+      if (lastShot) URL.revokeObjectURL(lastShot);
+      lastShot = URL.createObjectURL(blob);
+      const name = `KAWMET ${S[st.stove].name} - ${isCustom() ? 'moje wnetrze' : 'wnetrze ' + (st.int+1)}.jpg`;
+      $('shotImg').src = lastShot; $('shotLink').href = lastShot; $('shotLink').download = name;
+      $('shot').showModal();
+    }catch(err){
+      $('note').textContent = 'Nie udało się przygotować zdjęcia w tej przeglądarce. Zrób zrzut ekranu.';
+    }
+  };
+
+  // ---------- init ----------
+  const last = store.get('last', null);
+  if (last && last.int >= 0 && last.int < D.interiors.length){ st.int = last.int; st.stove = last.stove; }
+  readHash();
+  if (!st.stove || !S[st.stove]) st.stove = D.interiors[st.int].orig || D.stoves[0].id;
+  renderTiles();
+  setInterior(st.int);
+  window.addEventListener('hashchange', () => {
+    const before = st.int; readHash();
+    if (st.int !== before) setInterior(st.int); else { markTiles(); showStove(); }
+  });
+})();
+</script>
+</body>
+</html>
